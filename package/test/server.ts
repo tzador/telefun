@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { server } from "../src/telefun";
+import { server, emitter } from "../src/telefun";
 
 const service = {
   calculator: {
@@ -15,7 +15,14 @@ const service = {
         await new Promise((r) => setTimeout(r, 1000));
       }
     })();
-  }
+  },
+  time2: async (timezone: string) =>
+    emitter<{ now: number; timezone: string }>(async (emit) => {
+      for (let i = 0; i < 10; i++) {
+        emit({ now: Date.now(), timezone });
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    })
 };
 
 export type Service = typeof service;

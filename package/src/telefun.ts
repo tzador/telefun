@@ -63,13 +63,41 @@ export const server =
             const readable = new ReadableStream({
               start(controller) {
                 (async () => {
-                  for await (const event of result) {
-                    controller.enqueue(
-                      encoder.encode("data: " + JSON.stringify(event) + "\n\n")
-                    );
+                  try {
+                    for await (const event of result) {
+                      controller.enqueue(
+                        encoder.encode(
+                          "data: " + JSON.stringify(event) + "\n\n"
+                        )
+                      );
+                    }
+                  } finally {
+                    controller.close();
                   }
-                  controller.close();
                 })();
+              }
+            });
+            return new Response(readable, {
+              headers: {
+                "X-Accel-Buffering": "no",
+                "Content-Type": "text/event-stream",
+                "Cache-Control": "no-cache"
+              }
+            });
+          } else if ((result as any)[emitterSymbol] === true) {
+            const encoder = new TextEncoder();
+            const readable = new ReadableStream({
+              async start(controller) {
+                const emit = (event: any) => {
+                  controller.enqueue(
+                    encoder.encode("data: " + JSON.stringify(event) + "\n\n")
+                  );
+                };
+                try {
+                  await (result as any)(emit);
+                } finally {
+                  controller.close();
+                }
               }
             });
             return new Response(readable, {
@@ -100,3 +128,10 @@ export const server =
       service
     );
   };
+
+const emitterSymbol = Symbol("emitter");
+
+export const emitter = <T>(fn: (emit: (value: T) => void) => void) => {
+  (fn as any)[emitterSymbol] = true;
+  return fn;
+};
